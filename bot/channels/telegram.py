@@ -63,12 +63,20 @@ class TelegramChannel(Channel):
         return json.dumps({
             "keyboard": rows,
             "resize_keyboard": True,
-            "one_time_keyboard": True,
         })
 
     def send_buttons(self, text: str, options: List[Tuple[str, str]]) -> None:
         self.bot.api("sendMessage", chat_id=self.chat_id, text=text,
                      reply_markup=self._reply_keyboard(options))
+
+    def send_start_keyboard(self) -> None:
+        markup = json.dumps({
+            "keyboard": [[{"text": "/start"}]],
+            "resize_keyboard": True,
+        })
+        self.bot.api("sendMessage", chat_id=self.chat_id,
+                     text="Нажмите /start чтобы начать",
+                     reply_markup=markup)
 
     def send_photos(self, urls: List[str], caption: str) -> None:
         if len(urls) == 1:

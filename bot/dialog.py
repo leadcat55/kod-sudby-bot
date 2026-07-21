@@ -14,6 +14,7 @@ from typing import Optional
 from .channels.base import Channel
 from .services import db
 from .services.numerology import numerology
+from .services.llm import llm
 from .services.payments import payments, PLANS
 from .services.pdf_report import pdf_generator
 from .services.referral import referral
@@ -97,10 +98,11 @@ def handle(user_key: str, channel: Channel) -> None:
 
     sess = _session(user_key)
     state = sess.get("state", S_START)
+    print(f"[DEBUG] user_key={user_key} state={state} text={text!r}", flush=True)
 
     # /start always resets
     if text.lower() in ("/start", "start", "начать", "старт"):
-        _reset(user_key)
+        sess = _reset(user_key)
         channel.send_text(WELCOME)
         sess["state"] = S_WAIT_BIRTHDATE
         return
@@ -117,16 +119,19 @@ def handle(user_key: str, channel: Channel) -> None:
 
     if state == S_WAIT_NAME:
         sess["full_name"] = text
-        # Save to database
-        from .models.user import User
+        # Save to database (sync context — run async in new loop)
         import asyncio
-        asyncio.create_task(_save_user(user_key, sess))
+        try:
+            asyncio.run(_save_user(user_key, sess))
+        except Exception as e:
+            print(f"[DEBUG] _save_user error: {e}", flush=True)
         sess["state"] = S_MENU
         channel.send_text(f"✅ Профиль сохранён!\n\n📅 Дата: {sess['birth_date']}\n👤 Имя: {text}")
         _show_menu(channel)
         return
 
     if state == S_MENU:
+        print(f"[DEBUG] menu handler: text={text!r}", flush=True)
         _handle_menu(user_key, text, channel, sess)
         return
 
@@ -144,7 +149,7 @@ def handle(user_key: str, channel: Channel) -> None:
 
     # Unknown state - reset
     _reset(user_key)
-    channel.send_text("Начнём сначала. Отправьте /start")
+    channel.send_start_keyboard()
 
 
 def _show_menu(channel: Channel) -> None:
@@ -160,10 +165,11 @@ def _show_menu(channel: Channel) -> None:
 
 def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None:
     """Handle menu selection"""
-    if text == "free_calc":
+    print(f"[DEBUG] _handle_menu: text={text!r}", flush=True)
+    if text in ("free_calc", "🔢 Бесплатные расчёты"):
         sess["state"] = S_CALC
         _show_calc_menu(channel, user_key)
-    elif text == "premium":
+    elif text in ("premium", "🔮 Глубокий анализ"):
         sess["state"] = S_PREMIUM
         channel.send_text(PREMIUM_TEXT)
         options = [
@@ -173,9 +179,9 @@ def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None
             ("back", "🔙 Назад"),
         ]
         channel.send_buttons("Выберите тариф:", options)
-    elif text == "referrals":
+    elif text in ("referrals", "🎁 Реферальная программа"):
         _show_referrals(channel, user_key)
-    elif text == "help":
+    elif text in ("help", "❓ Помощь"):
         _show_help(channel)
     else:
         _show_menu(channel)
@@ -183,6 +189,7 @@ def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None
 
 def _show_calc_menu(channel: Channel, user_key: str) -> None:
     """Show free calculation menu"""
+    print(f"[DEBUG] _show_calc_menu called", flush=True)
     options = [
         ("calc:life_path", "📊 Число Жизненного Пути"),
         ("calc:soul", "💫 Число Души"),
@@ -194,44 +201,73 @@ def _show_calc_menu(channel: Channel, user_key: str) -> None:
 
 def _handle_calc(user_key: str, text: str, channel: Channel, sess: dict) -> None:
     """Handle calculation selection"""
-    if text == "back":
+    if text in ("back", "🔙 Назад"):
         sess["state"] = S_MENU
         _show_menu(channel)
         return
 
-    if text.startswith("calc:"):
-        calc_type = text.split(":")[1]
+    calc_type = None
+    if text.startswith("calc:") or "Жизненного Пути" in text:
+        calc_type = "life_path"
+    elif "Души" in text:
+        calc_type = "soul"
+    elif "Судьбы" in text:
+        calc_type = "destiny"
+
+    if calc_type:
         birth_date = date.fromisoformat(sess.get("birth_date", "2000-01-01"))
         full_name = sess.get("full_name", "")
 
         numbers = numerology.get_basic_numbers(birth_date, full_name)
 
         if calc_type == "life_path":
-            result = f"🔢 Число Жизненного Пути: {numbers['life_path']}"
+            number = numbers["life_path"]
+            result = f"🔢 Число Жизненного Пути: {number}"
         elif calc_type == "soul":
-            result = f"💫 Число Души: {numbers['soul']}"
+            number = numbers["soul"]
+            result = f"💫 Число Души: {number}"
         elif calc_type == "destiny":
-            result = f"⭐ Число Судьбы: {numbers['destiny']}"
+            number = numbers["destiny"]
+            result = f"⭐ Число Судьбы: {number}"
         else:
             result = "Неизвестный тип расчёта"
 
         channel.send_text(result)
+
+        # AI-расшифровка
+        import asyncio
+        try:
+            interpretation = asyncio.run(
+                llm.interpret_number(calc_type, number, birth_date, full_name)
+            )
+            channel.send_text(interpretation)
+        except Exception as e:
+            print(f"[LLM] ошибка: {e}", flush=True)
+
         _show_calc_menu(channel, user_key)
 
 
 def _handle_premium(user_key: str, text: str, channel: Channel, sess: dict) -> None:
     """Handle premium purchase"""
-    if text == "back":
+    if text in ("back", "🔙 Назад"):
         sess["state"] = S_MENU
         _show_menu(channel)
         return
 
+    plan_id = None
     if text.startswith("buy:"):
         plan_id = text.split(":")[1]
-        if plan_id in PLANS:
-            _start_payment(user_key, plan_id, channel)
-        else:
-            channel.send_text("❌ Неизвестный тариф")
+    elif "Базовый" in text:
+        plan_id = "basic"
+    elif "Полный" in text:
+        plan_id = "full"
+    elif "Подписка" in text:
+        plan_id = "subscription"
+
+    if plan_id and plan_id in PLANS:
+        _start_payment(user_key, plan_id, channel)
+    elif plan_id:
+        channel.send_text("❌ Неизвестный тариф")
 
 
 def _start_payment(user_key: str, plan_id: str, channel: Channel) -> None:

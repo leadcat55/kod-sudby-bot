@@ -46,3 +46,7 @@ class Channel(ABC):
     def send_photos(self, urls: List[str], caption: str) -> None:
         """Send photos with caption"""
         pass
+
+    def send_start_keyboard(self) -> None:
+        """Show start keyboard (optional, platform-specific)"""
+        pass

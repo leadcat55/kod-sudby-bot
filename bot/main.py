@@ -16,8 +16,8 @@ from .channels.vk import VkChannel, VkIncoming
 from .channels.max import MaxChannel, MaxIncoming
 from . import dialog
 
-# Load tokens from env
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "").strip()
+# Load tokens from config
+TELEGRAM_TOKEN = config.BOT_TOKEN or ""
 VK_TOKEN = os.environ.get("VK_TOKEN", "").strip()
 VK_GROUP_ID = os.environ.get("VK_GROUP_ID", "").strip()
 MAX_TOKEN = os.environ.get("MAX_TOKEN", "").strip()
