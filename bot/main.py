@@ -5,7 +5,7 @@ from aiogram.client.default import DefaultBotProperties
 
 from .config import config
 from .services.database import db
-from .handlers import start, menu, free_calc, premium, referrals, help
+from .handlers import start, free_calc, premium, referrals, help, profile
 
 async def main():
     logging.basicConfig(level=logging.INFO)
@@ -17,20 +17,20 @@ async def main():
     
     dp = Dispatcher()
     
-    # Register routers
+    # Register all routers
     dp.include_routers(
         start.router,
-        menu.router,
         free_calc.router,
         premium.router,
         referrals.router,
-        help.router
+        help.router,
+        profile.router
     )
     
     # Initialize database
     await db.init_db()
     
-    # Start polling
+    logging.info("Bot started!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
