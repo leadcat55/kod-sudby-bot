@@ -1,44 +1,103 @@
-import httpx
-from typing import Optional
-from ..config import config
+import os
+import time
+import requests
+from typing import Optional, Dict, Any
+
+# Plans configuration
+PLANS = {
+    "basic": {
+        "title": "Базовый отчёт — 199 ₽",
+        "price": 199,
+        "reports": 1,
+        "is_sub": False,
+    },
+    "full": {
+        "title": "Полный отчёт — 499 ₽",
+        "price": 499,
+        "reports": 3,
+        "is_sub": False,
+    },
+    "subscription": {
+        "title": "Подписка — 2999 ₽/год",
+        "price": 2999,
+        "reports": 100,
+        "is_sub": True,
+        "days": 365,
+    },
+}
+
+YOOKASSA_SHOP_ID = os.environ.get("YOOKASSA_SHOP_ID", "")
+YOOKASSA_SECRET_KEY = os.environ.get("YOOKASSA_SECRET_KEY", "")
+YOOKASSA_RETURN_URL = os.environ.get("YOOKASSA_RETURN_URL", "")
+
+
+class PaymentError(Exception):
+    pass
+
 
 class PaymentService:
     def __init__(self):
-        self.yookassa_api = "https://api.yookassa.ru/v3"
-    
-    async def create_payment(
-        self, 
-        amount: int, 
-        description: str, 
-        user_id: int,
-        return_url: str
-    ) -> Optional[str]:
-        """Create payment via YooKassa"""
-        if not config.YOOKASSA_SHOP_ID:
-            # Fallback to Telegram Stars
-            return await self.create_telegram_stars_payment(amount, description, user_id)
+        self.base_url = "https://api.yookassa.ru/v3"
+        self.session = requests.Session()
+        if YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY:
+            self.session.auth = (YOOKASSA_SHOP_ID, YOOKASSA_SECRET_KEY)
+        self._idempotency_counter = int(time.time() * 1000)
+
+    def is_configured(self) -> bool:
+        return bool(YOOKASSA_SHOP_ID and YOOKASSA_SECRET_KEY)
+
+    def _idempotency_key(self) -> str:
+        self._idempotency_counter += 1
+        return f"payment_{self._idempotency_counter}"
+
+    def create_payment(self, plan_id: str, user_key: str) -> Dict[str, Any]:
+        """Create payment in YooKassa"""
+        if not self.is_configured():
+            raise PaymentError("ЮKassa не настроена")
         
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{self.yookassa_api}/payments",
-                auth=(config.YOOKASSA_SHOP_ID, config.YOOKASSA_SECRET),
+        plan = PLANS.get(plan_id)
+        if not plan:
+            raise PaymentError(f"Неизвестный тариф: {plan_id}")
+        
+        try:
+            r = self.session.post(
+                f"{self.base_url}/payments",
+                headers={"Idempotence-Key": self._idempotency_key()},
                 json={
-                    "amount": {"value": str(amount), "currency": "RUB"},
-                    "confirmation": {"type": "redirect", "return_url": return_url},
+                    "amount": {"value": str(plan["price"]), "currency": "RUB"},
+                    "confirmation": {"type": "redirect", "return_url": YOOKASSA_RETURN_URL},
                     "capture": True,
-                    "description": description,
-                    "metadata": {"user_id": user_id}
-                }
+                    "description": f"КОД СУДЬБЫ: {plan['title']}",
+                    "metadata": {"user_key": user_key, "plan_id": plan_id},
+                },
+                timeout=30,
             )
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("confirmation", {}).get("confirmation_url")
-        return None
-    
-    async def create_telegram_stars_payment(self, amount: int, description: str, user_id: int) -> Optional[str]:
-        """Create Telegram Stars payment (simplified)"""
-        # In real implementation, use Telegram's payment API
-        # This is a placeholder
-        return f"stars_payment_{user_id}_{amount}"
+            if r.status_code != 200:
+                raise PaymentError(f"Ошибка создания платежа: {r.text}")
+            data = r.json()
+            return {
+                "id": data["id"],
+                "confirmation_url": data["confirmation"]["confirmation_url"],
+                "status": data["status"],
+            }
+        except requests.RequestException as e:
+            raise PaymentError(f"Сетевая ошибка: {e}")
+
+    def get_status(self, payment_id: str) -> str:
+        """Get payment status"""
+        if not self.is_configured():
+            raise PaymentError("ЮKassa не настроена")
+        
+        try:
+            r = self.session.get(
+                f"{self.base_url}/payments/{payment_id}",
+                timeout=30,
+            )
+            if r.status_code != 200:
+                raise PaymentError(f"Ошибка проверки статуса: {r.text}")
+            return r.json()["status"]
+        except requests.RequestException as e:
+            raise PaymentError(f"Сетевая ошибка: {e}")
+
 
 payments = PaymentService()
