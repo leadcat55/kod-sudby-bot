@@ -247,11 +247,50 @@ def payment_poller():
     log("payments", "поллер запущен")
     while True:
         try:
-            # Check pending payments in database
-            pass
+            # Get pending payments from database
+            import asyncio
+            pending = asyncio.run(db.get_pending_payments())
+
+            for payment in pending:
+                payment_id = payment["payment_id"]
+                try:
+                    status = payments.get_status(payment_id)
+                    if status == "succeeded":
+                        # Payment completed - update user
+                        user_key = payment["user_key"]
+                        plan_id = payment["plan_id"]
+                        asyncio.run(_complete_payment(user_key, plan_id))
+                        asyncio.run(db.update_payment_status(payment_id, "succeeded"))
+                        log("payments", f"Платёж {payment_id} успешно завершён")
+                    elif status == "canceled":
+                        asyncio.run(db.update_payment_status(payment_id, "canceled"))
+                        log("payments", f"Платёж {payment_id} отменён")
+                except Exception as e:
+                    log("payments", f"Ошибка проверки {payment_id}: {e}")
         except Exception as e:
             log("payments", f"ошибка: {e}")
-        time.sleep(10)
+        time.sleep(30)
+
+
+async def _complete_payment(user_key: str, plan_id: str) -> None:
+    """Complete payment and update user subscription"""
+    from datetime import datetime, timedelta
+    from .services.database import db
+
+    platform, user_id = user_key.split(":")
+    user_id = int(user_id)
+
+    user = await db.get_user(user_id)
+    if not user:
+        return
+
+    if plan_id == "subscription":
+        user.subscription_status = "premium"
+        user.subscription_expires = datetime.now() + timedelta(days=365)
+    elif plan_id in ("basic", "full"):
+        user.premium_reports_count += 1
+
+    await db.update_user(user)
 
 
 # ===========================================================================

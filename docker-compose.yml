@@ -6,7 +6,20 @@ services:
     restart: always
     env_file:
       - .env
-    volumes:
-      - ./data:/app/data
+    depends_on:
+      - db
     environment:
-      - DATABASE_URL=sqlite+aiosqlite:///data/bot.db
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/kod_sudby
+
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=kod_sudby
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

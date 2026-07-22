@@ -54,11 +54,11 @@ class PaymentService:
         """Create payment in YooKassa"""
         if not self.is_configured():
             raise PaymentError("ЮKassa не настроена")
-        
+
         plan = PLANS.get(plan_id)
         if not plan:
             raise PaymentError(f"Неизвестный тариф: {plan_id}")
-        
+
         try:
             r = self.session.post(
                 f"{self.base_url}/payments",
@@ -75,6 +75,19 @@ class PaymentService:
             if r.status_code != 200:
                 raise PaymentError(f"Ошибка создания платежа: {r.text}")
             data = r.json()
+
+            # Save to pending payments
+            import asyncio
+            from .database import db
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(db.add_pending_payment(data["id"], user_key, plan_id))
+                else:
+                    asyncio.run(db.add_pending_payment(data["id"], user_key, plan_id))
+            except Exception:
+                pass  # Non-critical, payment still created
+
             return {
                 "id": data["id"],
                 "confirmation_url": data["confirmation"]["confirmation_url"],

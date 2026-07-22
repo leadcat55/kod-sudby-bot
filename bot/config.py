@@ -13,7 +13,8 @@ class Config(BaseSettings):
     # Payment Settings
     PAYMENT_PROVIDER_TOKEN: str = Field(default="")
     YOOKASSA_SHOP_ID: str = Field(default="")
-    YOOKASSA_SECRET: str = Field(default="")
+    YOOKASSA_SECRET_KEY: str = Field(default="")
+    YOOKASSA_RETURN_URL: str = Field(default="https://t.me/kod_sudby_bot")
     
     # Freemium Settings
     FREE_CALC_LIMIT: int = Field(default=3)
