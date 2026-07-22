@@ -156,6 +156,7 @@ def _show_menu(channel: Channel) -> None:
     """Show main menu"""
     options = [
         ("free_calc", "🔢 Бесплатные расчёты"),
+        ("new_calc", "🔄 Новый расчёт"),
         ("premium", "🔮 Глубокий анализ"),
         ("referrals", "🎁 Реферальная программа"),
         ("help", "❓ Помощь"),
@@ -169,6 +170,10 @@ def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None
     if text in ("free_calc", "🔢 Бесплатные расчёты"):
         sess["state"] = S_CALC
         _show_calc_menu(channel, user_key)
+    elif text in ("new_calc", "🔄 Новый расчёт"):
+        sess = _reset(user_key)
+        channel.send_text("🔄 Начнём заново!\n\n📅 Введите дату рождения (ДД.ММ.ГГГГ):")
+        sess["state"] = S_WAIT_BIRTHDATE
     elif text in ("premium", "🔮 Глубокий анализ"):
         sess["state"] = S_PREMIUM
         channel.send_text(PREMIUM_TEXT)
