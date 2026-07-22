@@ -12,7 +12,6 @@ class Config:
 
         # Database
         self.DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///data/bot.db")
-        print(f"[CONFIG] DATABASE_URL = {self.DATABASE_URL[:50]}..." if len(self.DATABASE_URL) > 50 else f"[CONFIG] DATABASE_URL = {self.DATABASE_URL}")
 
         # LLM
         self.LLM_API_KEY = os.environ.get("LLM_API_KEY", "")

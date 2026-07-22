@@ -11,7 +11,6 @@ class DatabaseService:
         self.db_url = config.DATABASE_URL
         self.is_postgres = self.db_url.startswith("postgresql")
         self._pool = None
-        print(f"[DB] url starts with: {self.db_url[:20]}... is_postgres={self.is_postgres}")
 
     async def _get_pool(self):
         if self._pool is None:

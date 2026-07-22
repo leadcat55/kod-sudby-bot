@@ -98,7 +98,6 @@ def handle(user_key: str, channel: Channel) -> None:
 
     sess = _session(user_key)
     state = sess.get("state", S_START)
-    print(f"[DEBUG] user_key={user_key} state={state} text={text!r}", flush=True)
 
     # /start always resets
     if text.lower() in ("/start", "start", "начать", "старт"):
@@ -124,7 +123,7 @@ def handle(user_key: str, channel: Channel) -> None:
         try:
             asyncio.run(_save_user(user_key, sess))
         except Exception as e:
-            print(f"[DEBUG] _save_user error: {e}", flush=True)
+            pass
         sess["state"] = S_MENU
         channel.send_text(f"✅ Профиль сохранён!\n\n📅 Дата: {sess['birth_date']}\n👤 Имя: {text}")
         _show_menu(channel)
@@ -166,7 +165,6 @@ def _show_menu(channel: Channel) -> None:
 
 def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None:
     """Handle menu selection"""
-    print(f"[DEBUG] _handle_menu: text={text!r}", flush=True)
     if text in ("free_calc", "🔢 Бесплатные расчёты"):
         sess["state"] = S_CALC
         _show_calc_menu(channel, user_key)
@@ -194,7 +192,6 @@ def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None
 
 def _show_calc_menu(channel: Channel, user_key: str) -> None:
     """Show free calculation menu"""
-    print(f"[DEBUG] _show_calc_menu called", flush=True)
     options = [
         ("calc:life_path", "📊 Число Жизненного Пути"),
         ("calc:soul", "💫 Число Души"),
