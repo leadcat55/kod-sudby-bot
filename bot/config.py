@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
+import os
 
 class Config(BaseSettings):
     BOT_TOKEN: str = Field(default="")
@@ -26,3 +27,7 @@ class Config(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 config = Config()
+
+# Fallback: also try telegram_token from env (Railway may use this)
+if not config.BOT_TOKEN:
+    config.BOT_TOKEN = os.environ.get("telegram_token", "").strip()
