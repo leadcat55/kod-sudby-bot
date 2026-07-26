@@ -216,13 +216,13 @@ def _handle_calc(user_key: str, text: str, channel: Channel, sess: dict) -> None
 
         if calc_type == "life_path":
             number = numbers["life_path"]
-            result = f"🔢 Число Жизненного Пути: {number}"
+            result = f"🔢 Число Жизненного Пути: {number}\n\n{llm.get_calc_input_description(calc_type)}"
         elif calc_type == "soul":
             number = numbers["soul"]
-            result = f"💫 Число Души: {number}"
+            result = f"💫 Число Души: {number}\n\n{llm.get_calc_input_description(calc_type)}"
         elif calc_type == "destiny":
             number = numbers["destiny"]
-            result = f"⭐ Число Судьбы: {number}"
+            result = f"⭐ Число Судьбы: {number}\n\n{llm.get_calc_input_description(calc_type)}"
         else:
             result = "Неизвестный тип расчёта"
 
@@ -242,7 +242,7 @@ def _handle_calc(user_key: str, text: str, channel: Channel, sess: dict) -> None
 
 
 def _handle_premium(user_key: str, text: str, channel: Channel, sess: dict) -> None:
-    """Handle deep analysis — generate PDF report"""
+    """Handle deep analysis — generate PDF report with AI analysis"""
     if text in ("back", "🔙 Назад"):
         sess["state"] = S_MENU
         _show_menu(channel)
@@ -256,21 +256,35 @@ def _handle_premium(user_key: str, text: str, channel: Channel, sess: dict) -> N
         channel.send_text("❌ Сначала пройдите регистрацию (/start)")
         return
 
-    channel.send_text("🔮 Генерирую ваш персональный отчёт...")
+    channel.send_text("🔮 Генерирую ваш персональный отчёт с ИИ-анализом...")
 
     try:
         from .models.user import User
         user = User(user_id=0, birth_date=sess.get("birth_date"), full_name=full_name)
 
+        # Generate AI deep analysis
+        import asyncio
+        try:
+            ai_analysis = asyncio.run(llm.generate_deep_analysis(birth_date, full_name))
+            if not ai_analysis:
+                ai_analysis = llm._get_fallback_analysis(birth_date, full_name)
+        except Exception as e:
+            print(f"[LLM] ошибка deep analysis: {e}", flush=True)
+            ai_analysis = llm._get_fallback_analysis(birth_date, full_name)
+
+        # Show AI analysis to user
+        channel.send_text(f"🤖 ИИ-анализ:\n\n{ai_analysis[:2000]}")
+
+        # Generate PDF with AI analysis
         import os
         os.makedirs("data/reports", exist_ok=True)
         output_path = f"data/reports/{user_key.replace(':', '_')}_report.pdf"
 
-        pdf_generator.generate_basic_report(user, output_path)
+        pdf_generator.generate_deep_report(user, ai_analysis, output_path)
 
         # Send PDF
         with open(output_path, "rb") as f:
-            channel.send_document(f, "📊 Ваш нумерологический отчёт")
+            channel.send_document(f, "📊 Ваш нумерологический отчёт (PDF)")
 
         os.remove(output_path)
     except Exception as e:

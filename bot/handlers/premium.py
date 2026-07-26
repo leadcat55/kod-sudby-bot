@@ -1,7 +1,10 @@
 from aiogram import Router, F
-from aiogram.types import CallbackQuery, PreCheckoutQuery, LabeledPrice, Message
+from aiogram.types import CallbackQuery, PreCheckoutQuery, LabeledPrice, Message, FSInputFile
 from ..services.database import db
 from ..services.payments import payments
+from ..services.llm import llm
+from ..services.pdf_report import pdf_generator
+from ..models.user import User
 from ..keyboards.inline import premium_keyboard, back_to_menu_keyboard
 from ..utils.texts import PREMIUM_MENU
 
@@ -59,13 +62,41 @@ async def process_successful_payment(message: Message):
             user.premium_reports_count += 1
         await db.update_user(user)
     
-    # Send confirmation and trigger PDF generation
+    # Send confirmation
     await message.answer(
         f"✅ Оплата прошла успешно!\n\n"
         f"📦 Продукт: {PRODUCTS[product_key]['name']}\n"
         f"💰 Сумма: {payment.total_amount} {payment.currency}\n\n"
-        f"⏳ Генерирую ваш отчёт...",
+        f"⏳ Генерирую ваш отчёт с ИИ-анализом...",
         reply_markup=back_to_menu_keyboard()
     )
-    
-    # TODO: Trigger PDF generation and send
+
+    # Generate AI deep analysis and PDF
+    if user and user.birth_date and user.full_name:
+        try:
+            from datetime import date
+            import os
+
+            birth_date = date.fromisoformat(user.birth_date) if isinstance(user.birth_date, str) else user.birth_date
+
+            # Generate AI deep analysis
+            ai_analysis = await llm.generate_deep_analysis(birth_date, user.full_name)
+            if not ai_analysis:
+                ai_analysis = llm._get_fallback_analysis(birth_date, user.full_name)
+
+            # Show AI analysis to user
+            await message.answer(f"🤖 ИИ-анализ:\n\n{ai_analysis[:2000]}", parse_mode="Markdown")
+
+            # Generate PDF with AI analysis
+            os.makedirs("data/reports", exist_ok=True)
+            output_path = f"data/reports/tg_{user_id}_report.pdf"
+
+            pdf_user = User(user_id=user_id, birth_date=user.birth_date, full_name=user.full_name)
+            pdf_generator.generate_deep_report(pdf_user, ai_analysis, output_path)
+
+            # Send PDF
+            await message.answer_document(FSInputFile(output_path, filename="numerology_report.pdf"))
+
+            os.remove(output_path)
+        except Exception as e:
+            await message.answer(f"😔 Ошибка генерации отчёта: {e}")

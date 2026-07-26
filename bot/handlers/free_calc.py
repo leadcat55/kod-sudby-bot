@@ -4,6 +4,7 @@ from datetime import date
 
 from ..services.database import db
 from ..services.numerology import numerology
+from ..services.llm import llm
 from ..config import config
 from ..keyboards.inline import free_calc_keyboard, back_to_menu_keyboard
 from ..utils.texts import FREE_CALC_MENU, NO_FREE_CALC
@@ -52,9 +53,13 @@ async def handle_calculation(callback: CallbackQuery):
     # Calculate
     numbers = numerology.get_basic_numbers(birth_date, user.full_name)
 
+    input_desc = llm.get_calc_input_description(calc_type)
+
     if calc_type == "life_path":
         result = f"""
 🔢 **Число Жизненного Пути: {numbers['life_path']}**
+
+{input_desc}
 
 {get_life_path_description(numbers['life_path'])}
 """
@@ -62,11 +67,15 @@ async def handle_calculation(callback: CallbackQuery):
         result = f"""
 💫 **Число Души: {numbers['soul']}**
 
+{input_desc}
+
 {get_soul_description(numbers['soul'])}
 """
     elif calc_type == "destiny":
         result = f"""
 ⭐ **Число Судьбы: {numbers['destiny']}**
+
+{input_desc}
 
 {get_destiny_description(numbers['destiny'])}
 """
@@ -78,6 +87,14 @@ async def handle_calculation(callback: CallbackQuery):
 
     await callback.message.edit_text(result, reply_markup=back_to_menu_keyboard(), parse_mode="Markdown")
     await callback.answer()
+
+    # AI interpretation
+    try:
+        number = numbers[calc_type]
+        interpretation = await llm.interpret_number(calc_type, number, birth_date, user.full_name)
+        await callback.message.answer(interpretation, parse_mode="Markdown")
+    except Exception as e:
+        print(f"[LLM] ошибка: {e}", flush=True)
 
 def get_life_path_description(number: int) -> str:
     descriptions = {

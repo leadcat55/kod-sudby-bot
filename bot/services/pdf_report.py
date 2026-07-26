@@ -73,7 +73,16 @@ class PDFReportGenerator:
         story.append(Paragraph(f"Имя: {user.full_name}", self.styles['Normal']))
         story.append(Spacer(1, 1*inch))
         story.append(Paragraph("Дисклеймер: Данный отчёт носит исключительно развлекательный характер и не является научной консультацией.", self.styles['Normal']))
-        
+
+        # Input transparency section
+        story.append(PageBreak())
+        story.append(Paragraph("Как рассчитаны числа", self.styles['Heading1']))
+        story.append(Paragraph(f"🔢 Жизненный путь: {numbers['life_path']} — из даты рождения", self.styles['Normal']))
+        story.append(Paragraph(f"💫 Душа: {numbers['soul']} — из имени", self.styles['Normal']))
+        story.append(Paragraph(f"👤 Личность: {numbers['personality']} — из имени", self.styles['Normal']))
+        story.append(Paragraph(f"⭐ Судьба: {numbers['destiny']} — из имени", self.styles['Normal']))
+        story.append(Paragraph(f"🎂 День рождения: {numbers['birthday']} — из даты рождения", self.styles['Normal']))
+
         # Life Path Number
         story.append(PageBreak())
         story.append(Paragraph("Число Жизненного Пути", self.styles['Heading1']))
@@ -113,7 +122,82 @@ class PDFReportGenerator:
         
         doc.build(story)
         return output_path
-    
+
+    def _format_ai_text(self, text: str) -> list:
+        """Convert AI-generated text into reportlab Paragraphs, handling markdown"""
+        import re
+        from reportlab.lib.styles import getSampleStyleSheet
+        styles = getSampleStyleSheet()
+        paragraphs = []
+        for raw in text.split('\n'):
+            line = raw.strip()
+            if not line:
+                paragraphs.append(Spacer(1, 0.15*inch))
+                continue
+            # Convert markdown bold to reportlab bold: **text** -> <b>text</b>
+            line = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', line)
+            # Remove any remaining stray ** markers
+            line = line.replace('**', '')
+            # Convert markdown headers
+            if line.startswith('# '):
+                paragraphs.append(Paragraph(line[2:], styles['Heading1']))
+            elif line.startswith('## '):
+                paragraphs.append(Paragraph(line[3:], styles['Heading2']))
+            elif line.startswith('### '):
+                paragraphs.append(Paragraph(line[4:], styles['Normal']))
+            else:
+                paragraphs.append(Paragraph(line, styles['Normal']))
+        return paragraphs
+
+    def generate_deep_report(self, user: User, ai_analysis: str, output_path: str) -> str:
+        """Generate deep PDF report with AI analysis and input transparency"""
+        doc = SimpleDocTemplate(output_path, pagesize=A4)
+        story = []
+
+        birth_date = date.fromisoformat(user.birth_date) if isinstance(user.birth_date, str) else user.birth_date
+        numbers = numerology.get_basic_numbers(birth_date, user.full_name)
+        square = numerology.pythagorean_square(birth_date, user.full_name)
+
+        # Title page
+        story.append(Spacer(1, 2*inch))
+        story.append(Paragraph("КОД СУДЬБЫ", self.styles['TitleCustom']))
+        story.append(Paragraph("Глубокий нумерологический анализ", self.styles['SubtitleCustom']))
+        story.append(Spacer(1, 0.5*inch))
+        story.append(Paragraph(f"Дата рождения: {birth_date.strftime('%d.%m.%Y')}", self.styles['Normal']))
+        story.append(Paragraph(f"Имя: {user.full_name}", self.styles['Normal']))
+        story.append(Spacer(1, 1*inch))
+        story.append(Paragraph("Дисклеймер: Данный отчёт носит исключительно развлекательный характер и не является научной консультацией.", self.styles['Normal']))
+
+        # Input transparency section
+        story.append(PageBreak())
+        story.append(Paragraph("Как рассчитаны числа", self.styles['Heading1']))
+        story.append(Paragraph(f"🔢 Жизненный путь: {numbers['life_path']} — из даты рождения", self.styles['Normal']))
+        story.append(Paragraph(f"💫 Душа: {numbers['soul']} — из имени", self.styles['Normal']))
+        story.append(Paragraph(f"👤 Личность: {numbers['personality']} — из имени", self.styles['Normal']))
+        story.append(Paragraph(f"⭐ Судьба: {numbers['destiny']} — из имени", self.styles['Normal']))
+        story.append(Paragraph(f"🎂 День рождения: {numbers['birthday']} — из даты рождения", self.styles['Normal']))
+
+        # AI Analysis section
+        story.append(PageBreak())
+        story.append(Paragraph("ИИ-анализ", self.styles['Heading1']))
+        story.extend(self._format_ai_text(ai_analysis))
+
+        # Pythagorean Square
+        story.append(PageBreak())
+        story.append(Paragraph("Квадрат Пифагора", self.styles['Heading1']))
+        story.append(Paragraph(f"Первая линия: {square['first_line']}", self.styles['Normal']))
+        story.append(Paragraph(f"Вторая линия: {square['second_line']}", self.styles['Normal']))
+        story.append(Paragraph(f"Третья линия: {square['third_line']}", self.styles['Normal']))
+        story.append(Paragraph(f"Число имени: {square['name_value']}", self.styles['Normal']))
+        story.append(Spacer(1, 0.3*inch))
+        story.append(Paragraph("Расшифровка квадрата:", self.styles['Heading2']))
+        for num, count in square['counts'].items():
+            if count > 0:
+                story.append(Paragraph(f"Число {num}: {count} {'клетка' if count == 1 else 'клеты' if count < 5 else 'клеток'}", self.styles['Normal']))
+
+        doc.build(story)
+        return output_path
+
     def _get_life_path_full_description(self, number: int) -> str:
         descriptions = {
             1: """Число Жизненного Пути 1 указывает на прирождённого лидера. Вы обладаете сильной волей, решительностью и стремлением к независимости.
