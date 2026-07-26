@@ -12,12 +12,17 @@ from .numerology import numerology
 from ..models.user import User
 
 # Register Cyrillic font
-FONT_PATH = os.path.join(os.environ.get("SYSTEMROOT", "C:\\Windows"), "Fonts", "arial.ttf")
-if os.path.exists(FONT_PATH):
-    pdfmetrics.registerFont(TTFont('Arial', FONT_PATH))
-    DEFAULT_FONT = 'Arial'
-else:
-    DEFAULT_FONT = 'Helvetica'
+FONT_PATHS = [
+    os.path.join(os.environ.get("SYSTEMROOT", "C:\\Windows"), "Fonts", "arial.ttf"),
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+]
+DEFAULT_FONT = 'Helvetica'
+for fp in FONT_PATHS:
+    if os.path.exists(fp):
+        pdfmetrics.registerFont(TTFont('CyrillicFont', fp))
+        DEFAULT_FONT = 'CyrillicFont'
+        break
 
 class PDFReportGenerator:
     def __init__(self):
