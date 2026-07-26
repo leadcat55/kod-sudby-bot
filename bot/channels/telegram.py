@@ -97,6 +97,6 @@ class TelegramChannel(Channel):
         self.bot.session.post(
             f"{self.bot.base}/sendDocument",
             data={"chat_id": self.chat_id, "caption": filename},
-            files={"document": (filename, file, "application/pdf")},
+            files={"document": (filename if filename.endswith('.pdf') else filename + '.pdf', file, "application/pdf")},
             timeout=100,
         )

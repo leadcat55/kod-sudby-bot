@@ -3,11 +3,21 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
 from reportlab.lib.colors import HexColor
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from datetime import date
 import os
 
 from .numerology import numerology
 from ..models.user import User
+
+# Register Cyrillic font
+FONT_PATH = os.path.join(os.environ.get("SYSTEMROOT", "C:\\Windows"), "Fonts", "arial.ttf")
+if os.path.exists(FONT_PATH):
+    pdfmetrics.registerFont(TTFont('Arial', FONT_PATH))
+    DEFAULT_FONT = 'Arial'
+else:
+    DEFAULT_FONT = 'Helvetica'
 
 class PDFReportGenerator:
     def __init__(self):
@@ -18,6 +28,7 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='TitleCustom',
             parent=self.styles['Title'],
+            fontName=DEFAULT_FONT,
             fontSize=24,
             textColor=HexColor('#6B46C1'),
             spaceAfter=20
@@ -25,10 +36,15 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='SubtitleCustom',
             parent=self.styles['Heading2'],
+            fontName=DEFAULT_FONT,
             fontSize=16,
             textColor=HexColor('#4A5568'),
             spaceAfter=12
         ))
+        # Update all styles to use the font
+        for style in self.styles.byName.values():
+            if hasattr(style, 'fontName'):
+                style.fontName = DEFAULT_FONT
     
     def generate_basic_report(self, user: User, output_path: str) -> str:
         """Generate basic PDF report (5+ pages)"""
