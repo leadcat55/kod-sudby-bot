@@ -11,18 +11,22 @@ import os
 from .numerology import numerology
 from ..models.user import User
 
-# Register Cyrillic font
-FONT_PATHS = [
+# Register Cyrillic font - look in project data/ first, then system fonts
+FONT_SEARCH_PATHS = [
+    os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'DejaVuSans.ttf'),
     os.path.join(os.environ.get("SYSTEMROOT", "C:\\Windows"), "Fonts", "arial.ttf"),
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
 ]
 DEFAULT_FONT = 'Helvetica'
-for fp in FONT_PATHS:
+for fp in FONT_SEARCH_PATHS:
     if os.path.exists(fp):
-        pdfmetrics.registerFont(TTFont('CyrillicFont', fp))
-        DEFAULT_FONT = 'CyrillicFont'
-        break
+        try:
+            pdfmetrics.registerFont(TTFont('CyrillicFont', fp))
+            DEFAULT_FONT = 'CyrillicFont'
+            break
+        except Exception:
+            continue
 
 class PDFReportGenerator:
     def __init__(self):
