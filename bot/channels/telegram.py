@@ -91,3 +91,12 @@ class TelegramChannel(Channel):
             media.append(item)
         self.bot.api("sendMediaGroup", chat_id=self.chat_id,
                      media=json.dumps(media))
+
+    def send_document(self, file, filename: str) -> None:
+        """Send document file"""
+        self.bot.session.post(
+            f"{self.bot.base}/sendDocument",
+            data={"chat_id": self.chat_id, "caption": filename},
+            files={"document": (filename, file, "application/pdf")},
+            timeout=100,
+        )

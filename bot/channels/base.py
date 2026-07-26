@@ -47,6 +47,10 @@ class Channel(ABC):
         """Send photos with caption"""
         pass
 
+    def send_document(self, file, filename: str) -> None:
+        """Send document file"""
+        pass
+
     def send_start_keyboard(self) -> None:
         """Show start keyboard (optional, platform-specific)"""
         pass

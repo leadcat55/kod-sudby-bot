@@ -80,9 +80,10 @@ PAYWALL_TEXT = (
 
 
 def _parse_date(text: str) -> Optional[date]:
-    """Parse date from DD.MM.YYYY format"""
+    """Parse date from DD.MM.YYYY or DD,MM,YYYY format"""
     try:
-        parts = text.strip().split(".")
+        normalized = text.strip().replace(",", ".")
+        parts = normalized.split(".")
         if len(parts) != 3:
             return None
         day, month, year = int(parts[0]), int(parts[1]), int(parts[2])
@@ -130,7 +131,6 @@ def handle(user_key: str, channel: Channel) -> None:
         return
 
     if state == S_MENU:
-        print(f"[DEBUG] menu handler: text={text!r}", flush=True)
         _handle_menu(user_key, text, channel, sess)
         return
 
@@ -173,15 +173,7 @@ def _handle_menu(user_key: str, text: str, channel: Channel, sess: dict) -> None
         channel.send_text("🔄 Начнём заново!\n\n📅 Введите дату рождения (ДД.ММ.ГГГГ):")
         sess["state"] = S_WAIT_BIRTHDATE
     elif text in ("premium", "🔮 Глубокий анализ"):
-        sess["state"] = S_PREMIUM
-        channel.send_text(PREMIUM_TEXT)
-        options = [
-            ("buy:basic", "💎 Базовый — 199 ₽"),
-            ("buy:full", "🔥 Полный — 499 ₽"),
-            ("buy:subscription", "👑 Подписка — 2999 ₽"),
-            ("back", "🔙 Назад"),
-        ]
-        channel.send_buttons("Выберите тариф:", options)
+        _handle_premium(user_key, text, channel, sess)
     elif text in ("referrals", "🎁 Реферальная программа"):
         _show_referrals(channel, user_key)
     elif text in ("help", "❓ Помощь"):
@@ -250,26 +242,41 @@ def _handle_calc(user_key: str, text: str, channel: Channel, sess: dict) -> None
 
 
 def _handle_premium(user_key: str, text: str, channel: Channel, sess: dict) -> None:
-    """Handle premium purchase"""
+    """Handle deep analysis — generate PDF report"""
     if text in ("back", "🔙 Назад"):
         sess["state"] = S_MENU
         _show_menu(channel)
         return
 
-    plan_id = None
-    if text.startswith("buy:"):
-        plan_id = text.split(":")[1]
-    elif "Базовый" in text:
-        plan_id = "basic"
-    elif "Полный" in text:
-        plan_id = "full"
-    elif "Подписка" in text:
-        plan_id = "subscription"
+    # Generate report
+    birth_date = date.fromisoformat(sess.get("birth_date", "2000-01-01"))
+    full_name = sess.get("full_name", "")
 
-    if plan_id and plan_id in PLANS:
-        _start_payment(user_key, plan_id, channel)
-    elif plan_id:
-        channel.send_text("❌ Неизвестный тариф")
+    if not full_name:
+        channel.send_text("❌ Сначала пройдите регистрацию (/start)")
+        return
+
+    channel.send_text("🔮 Генерирую ваш персональный отчёт...")
+
+    try:
+        from .models.user import User
+        user = User(user_id=0, birth_date=sess.get("birth_date"), full_name=full_name)
+
+        import os
+        os.makedirs("data/reports", exist_ok=True)
+        output_path = f"data/reports/{user_key.replace(':', '_')}_report.pdf"
+
+        pdf_generator.generate_basic_report(user, output_path)
+
+        # Send PDF
+        with open(output_path, "rb") as f:
+            channel.send_document(f, "📊 Ваш нумерологический отчёт")
+
+        os.remove(output_path)
+    except Exception as e:
+        channel.send_text(f"😔 Ошибка генерации отчёта: {e}")
+
+    _show_menu(channel)
 
 
 def _start_payment(user_key: str, plan_id: str, channel: Channel) -> None:
