@@ -64,12 +64,41 @@ def test_get_calc_breakdown_birthday_single_digit():
     result = engine.get_calc_breakdown("birthday", date(1990, 5, 5))
     assert result == "День 5 → 5 = 5"
 
-def test_get_calc_breakdown_name_based_returns_none():
+def test_get_calc_breakdown_soul():
     engine = NumerologyEngine()
-    # Name-based calculations should return None
-    assert engine.get_calc_breakdown("soul", date(1965, 9, 14), "Иван Иванов") is None
-    assert engine.get_calc_breakdown("personality", date(1965, 9, 14), "Иван Иванов") is None
-    assert engine.get_calc_breakdown("destiny", date(1965, 9, 14), "Иван Иванов") is None
+    # "Иван" → vowels: И(1) + а(1) = 2
+    result = engine.get_calc_breakdown("soul", date(1965, 9, 14), "Иван")
+    assert result == "Иван → И(1) + а(1) = 2"
+
+def test_get_calc_breakdown_personality():
+    engine = NumerologyEngine()
+    # "Иван" → consonants: в(3) + н(6) = 9
+    result = engine.get_calc_breakdown("personality", date(1965, 9, 14), "Иван")
+    assert result == "Иван → в(3) + н(6) = 9"
+
+def test_get_calc_breakdown_destiny_master_number():
+    engine = NumerologyEngine()
+    # "Иван" → all: И(1) + в(3) + а(1) + н(6) = 11 (master number, no reduction)
+    result = engine.get_calc_breakdown("destiny", date(1965, 9, 14), "Иван")
+    assert result == "Иван → И(1) + в(3) + а(1) + н(6) = 11"
+
+def test_get_calc_breakdown_destiny_with_reduction():
+    engine = NumerologyEngine()
+    # "Алексей" → all: А(1) + л(4) + е(6) + к(3) + с(1) + е(6) + й(2) = 23 → 2+3 = 5
+    result = engine.get_calc_breakdown("destiny", date(1990, 5, 15), "Алексей")
+    assert result == "Алексей → А(1) + л(4) + е(6) + к(3) + с(1) + е(6) + й(2) = 23 → 2+3 = 5"
+
+def test_get_calc_breakdown_name_based_empty_name():
+    engine = NumerologyEngine()
+    # Empty name should return None
+    assert engine.get_calc_breakdown("soul", date(1965, 9, 14), "") is None
+    assert engine.get_calc_breakdown("personality", date(1965, 9, 14), "") is None
+    assert engine.get_calc_breakdown("destiny", date(1965, 9, 14), "") is None
+
+def test_get_calc_breakdown_name_based_no_vowels():
+    engine = NumerologyEngine()
+    # Name with no vowels → soul returns None
+    assert engine.get_calc_breakdown("soul", date(1965, 9, 14), "Птр") is None
 
 def test_get_calc_breakdown_unknown_type_returns_none():
     engine = NumerologyEngine()

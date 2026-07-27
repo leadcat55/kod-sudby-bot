@@ -33,9 +33,12 @@ class LLMService:
 
         For date-based calculations (life_path, birthday), shows the full
         digit-by-digit calculation breakdown when birth_date is provided.
+
+        For name-based calculations (soul, personality, destiny), shows the
+        letter-by-letter calculation breakdown when full_name is provided.
         """
-        # Try to generate a calculation breakdown for date-based calculations
-        if birth_date is not None:
+        # Try to generate a calculation breakdown
+        if birth_date is not None or full_name:
             breakdown = numerology.get_calc_breakdown(calc_type, birth_date, full_name or "")
             if breakdown:
                 return breakdown

@@ -66,17 +66,20 @@ class NumerologyEngine:
         """Число Дня Рождения - день рождения"""
         return self.reduce_to_single(birth_date.day)
     
-    def get_calc_breakdown(self, calc_type: str, birth_date: date, full_name: str = "") -> str:
+    def get_calc_breakdown(self, calc_type: str, birth_date: date = None, full_name: str = "") -> str:
         """Generate a human-readable calculation breakdown for a given calc type.
         
         For date-based calculations (life_path, birthday), shows the full
         digit-by-digit calculation, e.g.:
             14.09.1965 → 1+4+0+9+1+9+6+5 = 35 → 3+5 = 8
         
-        Returns None for name-based calculations (soul, personality, destiny)
-        or unknown calc types.
+        For name-based calculations (soul, personality, destiny), shows the
+        letter-by-letter calculation, e.g.:
+            Иван → И(1) + а(1) = 2
+        
+        Returns None for unknown calc types or when required inputs are missing.
         """
-        if calc_type == "life_path":
+        if calc_type == "life_path" and birth_date is not None:
             date_display = birth_date.strftime("%d.%m.%Y")
             date_str = birth_date.strftime("%d%m%Y")
             digits = [int(d) for d in date_str]
@@ -97,7 +100,7 @@ class NumerologyEngine:
             else:
                 return f"{date_display} → {digits_str} = {total}"
 
-        elif calc_type == "birthday":
+        elif calc_type == "birthday" and birth_date is not None:
             day = birth_date.day
             digits = [int(d) for d in str(day)]
             total = sum(digits)
@@ -109,6 +112,39 @@ class NumerologyEngine:
                 return f"День {day} → {digits_str} = {total} → {step_str} = {sum(digit_parts)}"
             else:
                 return f"День {day} → {digits_str} = {total}"
+
+        elif calc_type in ("soul", "personality", "destiny") and full_name:
+            vowels = set('аеёиоуыэюя')
+
+            if calc_type == "soul":
+                letters = [c for c in full_name if c.lower() in vowels and c.isalpha()]
+            elif calc_type == "personality":
+                letters = [c for c in full_name if c.isalpha() and c.lower() not in vowels]
+            else:  # destiny
+                letters = [c for c in full_name if c.isalpha()]
+
+            if not letters:
+                return None
+
+            values = [self.LETTER_VALUES.get(c.lower(), 0) for c in letters]
+            total = sum(values)
+
+            # Build the display
+            letter_values_str = " + ".join(f"{c}({v})" for c, v in zip(letters, values))
+
+            # Build reduction steps (stop at master numbers 11, 22, 33)
+            parts = []
+            current = total
+            while current > 9 and current not in (11, 22, 33):
+                digit_parts = [int(d) for d in str(current)]
+                step_sum = sum(digit_parts)
+                parts.append(f"{'+'.join(str(p) for p in digit_parts)} = {step_sum}")
+                current = step_sum
+
+            if parts:
+                return f"{full_name} → {letter_values_str} = {total} → {' → '.join(parts)}"
+            else:
+                return f"{full_name} → {letter_values_str} = {total}"
 
         return None
 
