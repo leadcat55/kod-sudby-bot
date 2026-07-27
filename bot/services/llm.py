@@ -28,8 +28,19 @@ class LLMService:
         self.model = config.LLM_MODEL
         print(f"[LLM] init: url={self.api_url}, key={'***' + self.api_key[-4:] if self.api_key else 'ПУСТО'}, model={self.model}", flush=True)
 
-    def get_calc_input_description(self, calc_type: str) -> str:
-        """Return a human-readable description of which inputs are used for a calculation"""
+    def get_calc_input_description(self, calc_type: str, birth_date=None, full_name=None) -> str:
+        """Return a human-readable description of which inputs are used for a calculation.
+
+        For date-based calculations (life_path, birthday), shows the full
+        digit-by-digit calculation breakdown when birth_date is provided.
+        """
+        # Try to generate a calculation breakdown for date-based calculations
+        if birth_date is not None:
+            breakdown = numerology.get_calc_breakdown(calc_type, birth_date, full_name or "")
+            if breakdown:
+                return breakdown
+
+        # Fall back to generic descriptions
         return CALC_INPUT_DESCRIPTIONS.get(calc_type, "📅👤 Используются дата рождения и имя")
 
     def get_calc_type_name(self, calc_type: str) -> str:
@@ -38,7 +49,7 @@ class LLMService:
 
     async def interpret_number(self, calc_type: str, number: int, birth_date, full_name: str) -> str:
         """Generate a short AI interpretation of a single numerology number"""
-        input_desc = self.get_calc_input_description(calc_type)
+        input_desc = self.get_calc_input_description(calc_type, birth_date, full_name)
         type_name = self.get_calc_type_name(calc_type)
 
         if not self.api_key:

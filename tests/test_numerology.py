@@ -27,3 +27,50 @@ def test_basic_numbers():
     assert "personality" in numbers
     assert "destiny" in numbers
     assert "birthday" in numbers
+
+def test_get_calc_breakdown_life_path():
+    engine = NumerologyEngine()
+    # 14.09.1965 → 1+4+0+9+1+9+6+5 = 35 → 3+5 = 8
+    result = engine.get_calc_breakdown("life_path", date(1965, 9, 14))
+    assert result == "14.09.1965 → 1+4+0+9+1+9+6+5 = 35 → 3+5 = 8"
+
+def test_get_calc_breakdown_life_path_no_reduction():
+    engine = NumerologyEngine()
+    # 01.01.2000 → 0+1+0+1+2+0+0+0 = 4 (already single digit)
+    result = engine.get_calc_breakdown("life_path", date(2000, 1, 1))
+    assert result == "01.01.2000 → 0+1+0+1+2+0+0+0 = 4"
+
+def test_get_calc_breakdown_life_path_master_number():
+    engine = NumerologyEngine()
+    # 11.11.1992 → 1+1+1+1+1+9+9+2 = 25 → 2+5 = 7
+    result = engine.get_calc_breakdown("life_path", date(1992, 11, 11))
+    assert result == "11.11.1992 → 1+1+1+1+1+9+9+2 = 25 → 2+5 = 7"
+
+def test_get_calc_breakdown_birthday():
+    engine = NumerologyEngine()
+    # Day 14 → 1+4 = 5
+    result = engine.get_calc_breakdown("birthday", date(1965, 9, 14))
+    assert result == "День 14 → 1+4 = 5"
+
+def test_get_calc_breakdown_birthday_double_digit():
+    engine = NumerologyEngine()
+    # Day 29 → 2+9 = 11 → 1+1 = 2
+    result = engine.get_calc_breakdown("birthday", date(1990, 5, 29))
+    assert result == "День 29 → 2+9 = 11 → 1+1 = 2"
+
+def test_get_calc_breakdown_birthday_single_digit():
+    engine = NumerologyEngine()
+    # Day 5 → 5 (already single digit)
+    result = engine.get_calc_breakdown("birthday", date(1990, 5, 5))
+    assert result == "День 5 → 5 = 5"
+
+def test_get_calc_breakdown_name_based_returns_none():
+    engine = NumerologyEngine()
+    # Name-based calculations should return None
+    assert engine.get_calc_breakdown("soul", date(1965, 9, 14), "Иван Иванов") is None
+    assert engine.get_calc_breakdown("personality", date(1965, 9, 14), "Иван Иванов") is None
+    assert engine.get_calc_breakdown("destiny", date(1965, 9, 14), "Иван Иванов") is None
+
+def test_get_calc_breakdown_unknown_type_returns_none():
+    engine = NumerologyEngine()
+    assert engine.get_calc_breakdown("unknown", date(1965, 9, 14)) is None

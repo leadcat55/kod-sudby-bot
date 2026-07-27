@@ -53,7 +53,7 @@ async def handle_calculation(callback: CallbackQuery):
     # Calculate
     numbers = numerology.get_basic_numbers(birth_date, user.full_name)
 
-    input_desc = llm.get_calc_input_description(calc_type)
+    input_desc = llm.get_calc_input_description(calc_type, birth_date, user.full_name)
 
     if calc_type == "life_path":
         result = f"""

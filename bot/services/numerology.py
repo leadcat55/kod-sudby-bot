@@ -66,6 +66,52 @@ class NumerologyEngine:
         """Число Дня Рождения - день рождения"""
         return self.reduce_to_single(birth_date.day)
     
+    def get_calc_breakdown(self, calc_type: str, birth_date: date, full_name: str = "") -> str:
+        """Generate a human-readable calculation breakdown for a given calc type.
+        
+        For date-based calculations (life_path, birthday), shows the full
+        digit-by-digit calculation, e.g.:
+            14.09.1965 → 1+4+0+9+1+9+6+5 = 35 → 3+5 = 8
+        
+        Returns None for name-based calculations (soul, personality, destiny)
+        or unknown calc types.
+        """
+        if calc_type == "life_path":
+            date_display = birth_date.strftime("%d.%m.%Y")
+            date_str = birth_date.strftime("%d%m%Y")
+            digits = [int(d) for d in date_str]
+            total = sum(digits)
+            digits_str = "+".join(str(d) for d in digits)
+
+            # Build reduction steps (stop at master numbers 11, 22, 33)
+            parts = []
+            current = total
+            while current > 9 and current not in (11, 22, 33):
+                digit_parts = [int(d) for d in str(current)]
+                step_sum = sum(digit_parts)
+                parts.append(f"{'+'.join(str(p) for p in digit_parts)} = {step_sum}")
+                current = step_sum
+
+            if parts:
+                return f"{date_display} → {digits_str} = {total} → {' → '.join(parts)}"
+            else:
+                return f"{date_display} → {digits_str} = {total}"
+
+        elif calc_type == "birthday":
+            day = birth_date.day
+            digits = [int(d) for d in str(day)]
+            total = sum(digits)
+            digits_str = "+".join(str(d) for d in digits)
+
+            if total > 9:
+                digit_parts = [int(d) for d in str(total)]
+                step_str = "+".join(str(p) for p in digit_parts)
+                return f"День {day} → {digits_str} = {total} → {step_str} = {sum(digit_parts)}"
+            else:
+                return f"День {day} → {digits_str} = {total}"
+
+        return None
+
     def get_basic_numbers(self, birth_date: date, full_name: str) -> Dict[str, int]:
         """Get all basic numerology numbers"""
         return {
