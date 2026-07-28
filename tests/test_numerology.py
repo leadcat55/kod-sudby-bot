@@ -103,3 +103,58 @@ def test_get_calc_breakdown_name_based_no_vowels():
 def test_get_calc_breakdown_unknown_type_returns_none():
     engine = NumerologyEngine()
     assert engine.get_calc_breakdown("unknown", date(1965, 9, 14)) is None
+
+
+def test_fate_matrix_basic():
+    engine = NumerologyEngine()
+    # 14.09.1965 → digits: 1+4+0+9+1+9+6+5 = 35
+    result = engine.fate_matrix(date(1965, 9, 14))
+    assert result["day"] == 14
+    assert result["month"] == 9
+    assert result["year"] == 1965
+    assert result["a"] == 35  # sum of all digits
+    assert result["b"] == 8  # 3+5 = 8 (life path)
+    assert result["c"] == 1  # |1 - (2*1)| = 1
+    assert result["d"] == 1  # sum of digits of C
+    assert result["life_path"] == 8
+
+
+def test_fate_matrix_matrix_structure():
+    engine = NumerologyEngine()
+    result = engine.fate_matrix(date(1965, 9, 14))
+    matrix = result["matrix"]
+    assert len(matrix) == 3  # 3 rows
+    assert all(len(row) == 3 for row in matrix)  # 3 columns each
+    # Row 1: day, month, year
+    assert matrix[0] == [14, 9, 1965]
+    # Row 2: A, B, C
+    assert matrix[1] == [35, 8, 1]
+    # Row 3: D, life_path, D
+    assert matrix[2] == [1, 8, 1]
+
+
+def test_fate_matrix_cell_meanings():
+    engine = NumerologyEngine()
+    result = engine.fate_matrix(date(1965, 9, 14))
+    assert "cell_meanings" in result
+    assert len(result["cell_meanings"]) == 9
+    assert result["cell_meanings"][1] == "Тело, здоровье, физическая сила"
+    assert result["cell_meanings"][5] == "Цель жизни, главное предназначение, смысл"
+    assert result["cell_meanings"][8] == "Жизненный путь, основная миссия"
+
+
+def test_fate_matrix_single_digit_sum():
+    engine = NumerologyEngine()
+    # 01.01.2000 → digits: 0+1+0+1+2+0+0+0 = 4
+    result = engine.fate_matrix(date(2000, 1, 1))
+    assert result["a"] == 4
+    assert result["b"] == 4
+    assert result["life_path"] == 4
+
+
+def test_fate_matrix_date_str_and_digits():
+    engine = NumerologyEngine()
+    result = engine.fate_matrix(date(1965, 9, 14))
+    assert result["date_str"] == "14091965"
+    assert result["digits"] == [1, 4, 0, 9, 1, 9, 6, 5]
+

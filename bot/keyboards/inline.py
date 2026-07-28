@@ -52,9 +52,23 @@ def premium_keyboard() -> InlineKeyboardMarkup:
     )
     return builder.as_markup()
 
+def deep_analysis_keyboard() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="📊 Матрица судьбы", callback_data="deep_matrix")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔢 Квадрат Пифагора", callback_data="deep_pythagorean")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🔙 Назад", callback_data="main_menu")
+    )
+    return builder.as_markup()
+
 def back_to_menu_keyboard() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="🔙 Главное меню", callback_data="main_menu")
     )
     return builder.as_markup()
+

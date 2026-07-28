@@ -27,7 +27,9 @@ S_WAIT_NAME = "wait_name"
 S_MENU = "menu"
 S_CALC = "calc"
 S_PREMIUM = "premium"
+S_DEEP_ANALYSIS = "deep_analysis"
 S_PAYWALL = "paywall"
+
 
 # user_key -> state dict
 _sessions = {}
@@ -142,6 +144,10 @@ def handle(user_key: str, channel: Channel) -> None:
         _handle_premium(user_key, text, channel, sess)
         return
 
+    if state == S_DEEP_ANALYSIS:
+        _handle_deep_analysis(user_key, text, channel, sess)
+        return
+
     if state == S_PAYWALL:
         _handle_paywall(user_key, text, channel, sess)
         return
@@ -242,13 +248,12 @@ def _handle_calc(user_key: str, text: str, channel: Channel, sess: dict) -> None
 
 
 def _handle_premium(user_key: str, text: str, channel: Channel, sess: dict) -> None:
-    """Handle deep analysis — generate PDF report with AI analysis"""
+    """Handle deep analysis — show submenu with Матрица судьбы, Квадрат Пифагора, Назад"""
     if text in ("back", "🔙 Назад"):
         sess["state"] = S_MENU
         _show_menu(channel)
         return
 
-    # Generate report
     birth_date = date.fromisoformat(sess.get("birth_date", "2000-01-01"))
     full_name = sess.get("full_name", "")
 
@@ -256,41 +261,43 @@ def _handle_premium(user_key: str, text: str, channel: Channel, sess: dict) -> N
         channel.send_text("❌ Сначала пройдите регистрацию (/start)")
         return
 
-    channel.send_text("🔮 Генерирую ваш персональный отчёт с ИИ-анализом...")
+    # Show deep analysis submenu
+    sess["state"] = S_DEEP_ANALYSIS
+    options = [
+        ("deep_matrix", "📊 Матрица судьбы"),
+        ("deep_pythagorean", "🔢 Квадрат Пифагора"),
+        ("back", "🔙 Назад"),
+    ]
+    channel.send_buttons("🔮 Глубокий анализ\n\nВыберите раздел:", options)
 
-    try:
-        from .models.user import User
-        user = User(user_id=0, birth_date=sess.get("birth_date"), full_name=full_name)
 
-        # Generate AI deep analysis
-        import asyncio
-        try:
-            ai_analysis = asyncio.run(llm.generate_deep_analysis(birth_date, full_name))
-            if not ai_analysis:
-                ai_analysis = llm._get_fallback_analysis(birth_date, full_name)
-        except Exception as e:
-            print(f"[LLM] ошибка deep analysis: {e}", flush=True)
-            ai_analysis = llm._get_fallback_analysis(birth_date, full_name)
+def _handle_deep_analysis(user_key: str, text: str, channel: Channel, sess: dict) -> None:
+    """Handle deep analysis submenu selection"""
+    if text in ("back", "🔙 Назад"):
+        sess["state"] = S_MENU
+        _show_menu(channel)
+        return
 
-        # Show AI analysis to user
-        channel.send_text(f"🤖 ИИ-анализ:\n\n{ai_analysis[:2000]}")
+    birth_date = date.fromisoformat(sess.get("birth_date", "2000-01-01"))
+    full_name = sess.get("full_name", "")
 
-        # Generate PDF with AI analysis
-        import os
-        os.makedirs("data/reports", exist_ok=True)
-        output_path = f"data/reports/{user_key.replace(':', '_')}_report.pdf"
+    if text in ("deep_matrix", "📊 Матрица судьбы"):
+        result = llm.fate_matrix_text(birth_date, full_name)
+        channel.send_text(result)
+    elif text in ("deep_pythagorean", "🔢 Квадрат Пифагора"):
+        result = llm.pythagorean_square_text(birth_date, full_name)
+        channel.send_text(result)
+    else:
+        channel.send_text("❌ Неизвестный выбор")
 
-        pdf_generator.generate_deep_report(user, ai_analysis, output_path)
+    # Show submenu again
+    options = [
+        ("deep_matrix", "📊 Матрица судьбы"),
+        ("deep_pythagorean", "🔢 Квадрат Пифагора"),
+        ("back", "🔙 Назад"),
+    ]
+    channel.send_buttons("🔮 Глубокий анализ\n\nВыберите раздел:", options)
 
-        # Send PDF
-        with open(output_path, "rb") as f:
-            channel.send_document(f, "📊 Ваш нумерологический отчёт (PDF)")
-
-        os.remove(output_path)
-    except Exception as e:
-        channel.send_text(f"😔 Ошибка генерации отчёта: {e}")
-
-    _show_menu(channel)
 
 
 def _start_payment(user_key: str, plan_id: str, channel: Channel) -> None:

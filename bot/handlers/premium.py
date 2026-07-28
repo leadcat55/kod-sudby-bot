@@ -1,11 +1,12 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery, PreCheckoutQuery, LabeledPrice, Message, FSInputFile
+from datetime import date
 from ..services.database import db
 from ..services.payments import payments
 from ..services.llm import llm
 from ..services.pdf_report import pdf_generator
 from ..models.user import User
-from ..keyboards.inline import premium_keyboard, back_to_menu_keyboard
+from ..keyboards.inline import deep_analysis_keyboard, back_to_menu_keyboard
 from ..utils.texts import PREMIUM_MENU
 
 router = Router()
@@ -18,7 +19,60 @@ PRODUCTS = {
 
 @router.callback_query(F.data == "premium")
 async def show_premium_menu(callback: CallbackQuery):
-    await callback.message.edit_text(PREMIUM_MENU, reply_markup=premium_keyboard(), parse_mode="Markdown")
+    """Show deep analysis submenu with three buttons: Матрица судьбы, Квадрат Пифагора, Назад"""
+    user = await db.get_user(callback.from_user.id)
+
+    if not user or not user.birth_date:
+        await callback.message.edit_text(
+            "⚠️ Сначала настройте профиль и укажите дату рождения.",
+            reply_markup=back_to_menu_keyboard()
+        )
+        await callback.answer()
+        return
+
+    await callback.message.edit_text(
+        "🔮 **Глубокий анализ**\n\nВыберите раздел:",
+        reply_markup=deep_analysis_keyboard(),
+        parse_mode="Markdown"
+    )
+    await callback.answer()
+
+@router.callback_query(F.data == "deep_matrix")
+async def handle_deep_matrix(callback: CallbackQuery):
+    """Show Fate Matrix (Матрица судьбы) report"""
+    user = await db.get_user(callback.from_user.id)
+
+    if not user or not user.birth_date:
+        await callback.message.edit_text(
+            "⚠️ Сначала настройте профиль.",
+            reply_markup=back_to_menu_keyboard()
+        )
+        await callback.answer()
+        return
+
+    birth_date = date.fromisoformat(user.birth_date) if isinstance(user.birth_date, str) else user.birth_date
+    result = llm.fate_matrix_text(birth_date, user.full_name)
+
+    await callback.message.edit_text(result, reply_markup=deep_analysis_keyboard(), parse_mode="Markdown")
+    await callback.answer()
+
+@router.callback_query(F.data == "deep_pythagorean")
+async def handle_deep_pythagorean(callback: CallbackQuery):
+    """Show Pythagorean Square (Квадрат Пифагора) report"""
+    user = await db.get_user(callback.from_user.id)
+
+    if not user or not user.birth_date:
+        await callback.message.edit_text(
+            "⚠️ Сначала настройте профиль.",
+            reply_markup=back_to_menu_keyboard()
+        )
+        await callback.answer()
+        return
+
+    birth_date = date.fromisoformat(user.birth_date) if isinstance(user.birth_date, str) else user.birth_date
+    result = llm.pythagorean_square_text(birth_date, user.full_name)
+
+    await callback.message.edit_text(result, reply_markup=deep_analysis_keyboard(), parse_mode="Markdown")
     await callback.answer()
 
 @router.callback_query(F.data.startswith("buy_"))
@@ -74,7 +128,6 @@ async def process_successful_payment(message: Message):
     # Generate AI deep analysis and PDF
     if user and user.birth_date and user.full_name:
         try:
-            from datetime import date
             import os
 
             birth_date = date.fromisoformat(user.birth_date) if isinstance(user.birth_date, str) else user.birth_date

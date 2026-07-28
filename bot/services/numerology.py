@@ -9,9 +9,10 @@ class NumerologyEngine:
         'а': 1, 'б': 2, 'в': 3, 'г': 4, 'д': 5, 'е': 6, 'ё': 7,
         'ж': 8, 'з': 9, 'и': 1, 'й': 2, 'к': 3, 'л': 4, 'м': 5,
         'н': 6, 'о': 7, 'п': 8, 'р': 9, 'с': 1, 'т': 2, 'у': 3,
-        'ф': 4, 'х': 5, 'ц': 6, 'ч': 7, 'ш': 8, 'щ': 9, 'ъ': 0,
-        'ы': 1, 'ь': 0, 'э': 2, 'ю': 3, 'я': 4
+        'ф': 4, 'х': 5, 'ц': 6, 'ч': 7, 'ш': 8, 'щ': 9, 'ъ': 1,
+        'ы': 2, 'ь': 3, 'э': 4, 'ю': 5, 'я': 6
     }
+
     
     @staticmethod
     def reduce_to_single(n: int) -> int:
@@ -159,7 +160,16 @@ class NumerologyEngine:
         }
     
     def pythagorean_square(self, birth_date: date, full_name: str) -> Dict[str, List[int]]:
-        """Calculate Pythagorean Square (Квадрат Пифагора)"""
+        """Calculate Pythagorean Square (Квадрат Пифагора) per methodical guide.
+        
+        Steps:
+        1. First additional number: sum of all 8 digits of DDMMYYYY
+        2. Second additional number: sum of digits of first number
+        3. Third additional number: first_number - (2 × first_nonzero_digit_of_date)
+        4. Fourth additional number: sum of digits of third number
+        
+        Zero is not included in the square.
+        """
         # Get birth date digits
         date_digits = [int(d) for d in birth_date.strftime("%d%m%Y")]
         
@@ -167,31 +177,121 @@ class NumerologyEngine:
         name_value = self.destiny_number(full_name)
         name_digits = [int(d) for d in str(name_value)] if name_value > 9 else [name_value]
         
-        # First line: date of birth
+        # First additional number: sum of all date digits
+        first_sum = sum(date_digits)
         first_line = date_digits
         
-        # Second line: sum of first line
-        second_sum = sum(first_line)
-        second_line = [int(d) for d in str(second_sum)] if second_sum > 9 else [second_sum]
+        # Second additional number: sum of digits of first number
+        second_line = [int(d) for d in str(first_sum)] if first_sum > 9 else [first_sum]
         
-        # Third line: difference between first digit of first line and sum of rest
-        first_digit = first_line[0]
-        rest_sum = sum(first_line[1:])
-        third_value = abs(first_digit - rest_sum) if rest_sum > 0 else first_digit
+        # Third additional number: first_number - (2 × first_nonzero_digit_of_date)
+        # "if the first digit of the date is '0', the first non-zero digit is taken"
+        first_nonzero = next((d for d in date_digits if d > 0), date_digits[0])
+        third_value = first_sum - (2 * first_nonzero)
+        if third_value < 0:
+            third_value = abs(third_value)
+        if third_value == 0:
+            third_value = first_nonzero  # fallback
         third_line = [int(d) for d in str(third_value)] if third_value > 9 else [third_value]
         
-        # Fourth line: all digits together
-        all_digits = first_line + second_line + third_line + name_digits
+        # Fourth additional number: sum of digits of third number
+        fourth_value = self.reduce_to_single(third_value)
+        fourth_line = [int(d) for d in str(fourth_value)] if fourth_value > 9 else [fourth_value]
         
-        # Count occurrences of each number (1-9)
+        # All digits together (for counting)
+        all_digits = first_line + second_line + third_line + fourth_line + name_digits
+        
+        # Count occurrences of each number (1-9), zero is not included
         counts = {i: all_digits.count(i) for i in range(1, 10)}
         
         return {
             "first_line": first_line,
             "second_line": second_line,
             "third_line": third_line,
+            "fourth_line": fourth_line,
+            "fourth_value": fourth_value,
             "name_value": name_value,
             "counts": counts
+        }
+
+    
+    def fate_matrix(self, birth_date: date) -> Dict:
+        """Calculate Fate Matrix (Матрица Судьбы) by Natalia Sidorova.
+        
+        The Matrix of Fate is a 3×3 grid based on the birth date.
+        It uses four key numbers derived from the date of birth:
+        
+        - A (1st number): Sum of all 8 digits of DDMMYYYY
+        - B (2nd number): Sum of digits of A (equals Life Path number)
+        - C (3rd number): |first_digit - (num_digits_in_A × first_digit)|
+        - D (4th number): Sum of digits of C
+        
+        The 3×3 matrix:
+            [DD]  [MM]  [YYYY]
+            [A]   [B]   [C]
+            [D]   [LP]  [D]
+        
+        Where LP is the Life Path number.
+        """
+        date_str = birth_date.strftime("%d%m%Y")
+        digits = [int(d) for d in date_str]
+        
+        day = birth_date.day
+        month = birth_date.month
+        year = birth_date.year
+        
+        # 1st number: sum of all 8 digits
+        a = sum(digits)
+        
+        # 2nd number: sum of digits of A (equals Life Path)
+        b = self.reduce_to_single(a)
+        
+        # 3rd number: |first_digit - (num_digits_in_A × first_digit)|
+        first_digit = digits[0]
+        num_digits_a = len(str(a))
+        c = abs(first_digit - (num_digits_a * first_digit))
+        if c == 0:
+            c = first_digit  # fallback if difference is zero
+        
+        # 4th number: sum of digits of C
+        d = self.reduce_to_single(c)
+        
+        # Life Path number
+        life_path = self.life_path_number(birth_date)
+        
+        # Build the 3×3 matrix
+        matrix = [
+            [day, month, year],
+            [a, b, c],
+            [d, life_path, d]
+        ]
+        
+        # Cell meanings (1-9)
+        cell_meanings = {
+            1: "Тело, здоровье, физическая сила",
+            2: "Эмоции, чувства, отношения с близкими",
+            3: "Карьера, публичная жизнь, социальный статус",
+            4: "Таланты, способности, творческие способности",
+            5: "Цель жизни, главное предназначение, смысл",
+            6: "Препятствия, вызовы, то, что нужно преодолеть",
+            7: "Прошлые жизни, кармические уроки",
+            8: "Жизненный путь, основная миссия",
+            9: "Наследство, наследство от прошлых жизней"
+        }
+        
+        return {
+            "day": day,
+            "month": month,
+            "year": year,
+            "a": a,
+            "b": b,
+            "c": c,
+            "d": d,
+            "life_path": life_path,
+            "matrix": matrix,
+            "cell_meanings": cell_meanings,
+            "date_str": date_str,
+            "digits": digits,
         }
     
     def compatibility(self, birth1: date, name1: str, birth2: date, name2: str) -> Dict:
